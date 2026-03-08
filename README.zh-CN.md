@@ -1,34 +1,33 @@
-# Hairroom - AI Hairstyle with Cloudflare Workers
+# nano banana 2 - 下一代 AI 图像编辑器
 
-一个基于 React 和 Cloudflare Workers 构建的 [AI 发型修改](https://hairroom.app) 应用，利用 AI 技术为用户提供个性化的发型建议和图像生成服务。
+一个基于 React 和 Cloudflare Workers 构建的尖端 AI 图像编辑平台，由先进的 Google Nano Banana Pro 模型驱动。专为追求极致自由和独特个性的创作者设计，提供超越想象的视觉创作体验。
 
-[English](README.md) | [中文](README.zh-CN.md)
+[English](README.md) | [中文](README.zh-CN.md) | [在线访问](https://nanobanana2pro.space)
 
 ## ✨ 功能特性
 
-- 🎨 **AI 发型生成**: 基于 GPT-4o 和 Flux Kontext 的智能发型设计
-- 📱 **响应式设计**: 支持桌面端和移动端访问
-- 🔐 **Google OAuth 登录**: 安全便捷的用户认证
-- ☁️ **云端部署**: 基于 Cloudflare Workers 的无服务器架构
-- 💾 **完整的数据存储**: 集成 D1 数据库、R2 文件存储和 KV 缓存
+- 🎨 **AI 深度生成**: 基于 Gemini 和 nano banana 2 引擎，实现高质量的文生图与创意构思。
+- 🧊 **3D 物件编辑**: 具备深度空间理解能力，可在 2D 图像中实现精准的 3D 物件操作与调整。
+- � **全局一致性保护**: 在复杂的编辑过程中，完美保持角色、艺术风格和环境的视觉一致性。
+- 🧠 **复杂逻辑推理**: 利用高精度逻辑推理能力，精准理解并执行多层次的复杂提示词意图。
+- 📱 **响应式流体体验**: 完美适配桌面端和移动端，随时随地开启创意之旅。
+- ☁️ **原生云架构**: 基于 Cloudflare Workers 的无服务器架构，提供极速响应与全球分布支持。
 
 ## 🛠 技术栈
 
-该项目采用现代化的技术栈构建：
+项目采用高性能的现代化技术栈：
 
-- **[React](https://react.dev/)**: 用户界面构建框架
-- **[React Router v7](https://reactrouter.com/)**: 应用路由和服务端 API 处理
-- **[Cloudflare Workers](https://workers.cloudflare.com/)**: 无服务器运行环境
-- **[Cloudflare D1](https://developers.cloudflare.com/d1/)**: 边缘数据库
-- **[Cloudflare R2](https://developers.cloudflare.com/r2/)**: 对象存储服务
-- **[Cloudflare KV](https://developers.cloudflare.com/kv/)**: 键值存储
-- **[Tailwind CSS](https://tailwindcss.com/)**: 原子化 CSS 框架
-- **[DaisyUI](https://daisyui.com/)**: Tailwind CSS 组件库
-- **[React OAuth](https://github.com/MomenSherif/react-oauth)**: Google OAuth 认证
+- **[React](https://react.dev/)**: 响应式 UI 构建框架。
+- **[React Router v7](https://reactrouter.com/)**: 统一项目路由与服务端 API 逻辑。
+- **[Cloudflare Workers](https://workers.cloudflare.com/)**: 边缘计算无服务器运行环境。
+- **[Cloudflare D1](https://developers.cloudflare.com/d1/)**: 分布式 SQL 边缘数据库。
+- **[Cloudflare R2](https://developers.cloudflare.com/r2/)**: 兼容 S3 的大规模对象存储。
+- **[Cloudflare KV](https://developers.cloudflare.com/kv/)**: 用于高效缓存的分布式键值存储。
+- **[Tailwind CSS](https://tailwindcss.com/) & [DaisyUI](https://daisyui.com/)**: 原子化 CSS 框架与组件库。
 
 ## 🚀 快速开始
 
-### 环境要求
+### 开发环境要求
 
 - Node.js 18+ 
 - pnpm
@@ -37,8 +36,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/neyric/ai-hairstyle.git
-cd ai-hairstyle
+git clone https://github.com/kiya0908/nano-banana2.git
+cd nano-banana2
 ```
 
 ### 2. 安装依赖
@@ -49,152 +48,51 @@ pnpm install
 
 ### 3. 环境配置
 
-复制并编辑 `wrangler.jsonc` 文件中的环境变量：
+在 `wrangler.jsonc` 文件中配置以下环境变量：
 
-#### API 密钥配置
+#### 核心密钥配置
+- `KIEAI_APIKEY`: 您的核心 AI 模型接口密钥。
+- `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET`: Google OAuth 认证密钥。
+- `SESSION_SECRET`: 会话加密密钥。
+- `CDN_URL`: R2 存储桶的公共访问 URL (例如 `https://cdn.nanobanana2pro.space`)。
 
-获取 [Kie AI](https://kie.ai) API 密钥：
+#### Cloudflare 服务初始化
 
-```json
-{
-  "vars": {
-    "KIEAI_APIKEY": "your_kie_ai_api_key_here"
-  }
-}
-```
-
-#### Google OAuth 配置
-
-在 [Google Cloud Console](https://console.cloud.google.com/apis/dashboard) 创建 OAuth 2.0 客户端：
-
-```json
-{
-  "vars": {
-    "GOOGLE_CLIENT_ID": "your_google_client_id",
-    "GOOGLE_CLIENT_SECRET": "your_google_client_secret"
-  }
-}
-```
-
-**#### Cloudflare 服务配置
-
-创建并配置以下 Cloudflare 服务：
-
-1. **D1 数据库**:
 ```bash
-wrangler d1 create hairroom
+# 创建 D1 数据库
+wrangler d1 create nanobanana2pro
+
+# 创建 KV 命名空间
+wrangler kv:namespace create "nanobanana2pro-kv"
+
+# 创建 R2 存储桶
+wrangler r2 bucket create nanobanana2pro
 ```
 
-2. **KV 命名空间**:
-```bash
-wrangler kv:namespace create "hairroom-kv"
-```
-
-3. **R2 存储桶**:
-```bash
-wrangler r2 bucket create hairroom
-```**
-
-然后在 `wrangler.jsonc` 中配置绑定：
-
-```json
-{
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "hairroom",
-      "database_id": "your_d1_database_id",
-      "migrations_dir": "./app/.server/drizzle/migrations"
-    }
-  ],
-  "kv_namespaces": [
-    {
-      "binding": "KV",
-      "id": "your_kv_namespace_id"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "R2",
-      "bucket_name": "hairroom"
-    }
-  ]
-}
-```
+完成后在 `wrangler.jsonc` 中更新对应的 ID 绑定。
 
 ### 4. 数据库迁移
 
-运行数据库迁移以创建必要的表：
-
 ```bash
-pnpm run db:migrate // 远程数据库结构迁移
-pnpm run db:migrate:local // 本地数据库结构迁移
+pnpm run db:migrate:local # 初始化本地数据库
+pnpm run db:migrate       # 更新生产环境数据库
 ```
 
 ### 5. 本地开发
-
-在完成 `pnpm run db:migrate:local` 指令后，使用以下命令启动开发服务器：
 
 ```bash
 pnpm run dev
 ```
 
-访问 [http://localhost:5173](http://localhost:5173) 查看应用。
+访问 `http://localhost:5173` 即可立即体验 nano banana 2 编辑器。
 
 ## 🌐 部署
 
-### 部署到 Cloudflare Workers
+一键部署到 Cloudflare 全球边缘节点：
 
 ```bash
 pnpm run deploy
 ```
-
-### 自定义域名配置
-
-如需绑定自定义域名，请在 `wrangler.jsonc` 中取消注释并修改以下配置：
-
-```json
-{
-  "routes": [
-    {
-      "pattern": "your-domain.com",
-      "custom_domain": true
-    },
-    {
-      "pattern": "www.your-domain.com", 
-      "custom_domain": true
-    }
-  ]
-}
-```
-
-然后重新部署：
-
-```bash
-pnpm run deploy
-```
-
-## 🔧 可用脚本
-
-- `pnpm run dev` - 启动开发服务器
-- `pnpm run build` - 构建生产版本
-- `pnpm run deploy` - 构建并部署到 Cloudflare Workers
-- `pnpm run preview` - 预览构建后的应用
-- `pnpm run typecheck` - TypeScript 类型检查
-- `pnpm run cf-typegen` - 生成 Cloudflare Workers 类型定义
-- `pnpm run db:generate` - 生成数据库迁移文件
-- `pnpm run db:migrate` - 运行数据库迁移
-- `pnpm run db:migrate:local` - 在本地运行数据库迁移
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！请确保：
-
-1. Fork 本仓库
-2. 创建特性分支: `git checkout -b feature/amazing-feature`
-3. 提交更改: `git commit -m 'Add amazing feature'`
-4. 推送到分支: `git push origin feature/amazing-feature`
-5. 开启 Pull Request
 
 ## 📄 许可证
 
@@ -202,16 +100,10 @@ pnpm run deploy
 
 ## 🙏 致谢
 
-- [OpenAI](https://openai.com/) - GPT-4o API
-- [Cloudflare](https://cloudflare.com/) - 基础设施支持
-- [Kie AI](https://kie.ai/) - AI 服务提供
-
-## 📞 联系方式
-
-如有问题或建议，请通过以下方式联系：
-
-- 提交 [Issue](https://github.com/neyric/ai-hairstyle/issues)
+- [Google Gemini](https://deepmind.google/technologies/gemini/) - 提供核心逻辑与视觉模型支持。
+- [Cloudflare](https://cloudflare.com/) - 全球领先的基础设施平台。
+- [Kie AI](https://kie.ai/) - AI 服务调度与优化。
 
 ---
 
-⭐ 如果这个项目对你有帮助，请给它一个 Star！
+⭐ 如果这个项目对您的创作有所启发，请给它一个 Star！

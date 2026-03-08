@@ -11,29 +11,29 @@
     "nodejs_compat"
   ],
   "upload_source_maps": true,
-  // "routes": [
-  //   {
-  //     "pattern": "example.com",
-  //     "custom_domain": true
-  //   },
-  //   {
-  //     "pattern": "www.example.com",
-  //     "custom_domain": true
-  //   }
-  // ],
+  "routes": [
+    {
+      "pattern": "nanobanana2pro.space",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.nanobanana2pro.space",
+      "custom_domain": true
+    }
+  ],
   "vars": {
     // Secrets
-    "SESSION_SECRET": "qf!XhJh^YL8lFUGA",
+    "SESSION_SECRET": "YOUR_SESSION_SECRET",
     // Other Parameters
     "CDN_URL": "https://cdn.nanobanana2pro.space", // CDN URL for R2
-    "DOMAIN": "https://example.com/", // Deploy Domain
+    "DOMAIN": "https://nanobanana2pro.space/", // Deploy Domain
     "GOOGLE_ANALYTICS_ID": "G-XXXXXXX", // GA
     "GOOGLE_ADS_ID": "pub-xxxxxxxxxxxxxxxx", // Google AdSense
     // Google OAuth
-    "GOOGLE_CLIENT_ID": "xxxxxxxxx",
-    "GOOGLE_CLIENT_SECRET": "xxxxxxxxx",
+    "GOOGLE_CLIENT_ID": "YOUR_GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET": "YOUR_GOOGLE_CLIENT_SECRET",
     // API Request Authroized
-    "KIEAI_APIKEY": "xxxxxxxxxxxx", // Kie for API
+    "KIEAI_APIKEY": "YOUR_KIEAI_APIKEY", // Kie for API
     // Payment
     "CREEM_KEY": "creem_xxxxxxxxxx",
     "CREEM_TEST_KEY": "creem_test_xxxxxxxxxx",
