@@ -4,9 +4,9 @@ Last updated: June 12, 2025
 
 ## 1. Introduction
 
-At **HairRoom.app**, we are deeply committed to protecting your personal information and privacy. This Privacy Policy explains how we collect, use, and protect your data when you interact with our services.
+At **Nano Banana 2**, we are deeply committed to protecting your personal information and privacy. This Privacy Policy explains how we collect, use, and protect your data when you interact with our services.
 
-HairRoom.app offers an AI-powered virtual hairstyle experience, allowing users to upload photos and preview various hairstyles digitally. This policy applies to all users of our website ([https://HairRoom.app](https://HairRoom.app)) and services.
+Nano Banana 2 offers an AI-powered virtual hairstyle experience, allowing users to upload photos and preview various hairstyles digitally. This policy applies to all users of our website ([https://Nano Banana 2](https://Nano Banana 2)) and services.
 
 ## 2. Information We Collect
 
@@ -103,7 +103,7 @@ You have the right to:
 
 To exercise any of your rights, contact us via:
 
-**Email**: [support@hairroom.app](mailto:support@hairroom.app)
+**Email**: [support@Nano Banana 2](mailto:support@Nano Banana 2)
 
 We may require verification of your identity before fulfilling your request.
 
@@ -115,7 +115,7 @@ We aim to respond to all legitimate requests within **30 days**. Complex or mult
 
 ### 6.1 Policy Revisions
 
-HairRoom.app may update this Privacy Policy periodically. All changes take effect upon posting unless otherwise indicated.
+Nano Banana 2 may update this Privacy Policy periodically. All changes take effect upon posting unless otherwise indicated.
 
 ### 6.2 Notification of Changes
 
@@ -128,10 +128,10 @@ If substantial changes are made:
 
 If you have questions, concerns, or feedback about this policy or your data:
 
-- **Email**: [support@hairroom.app](mailto:support@hairroom.app)
+- **Email**: [support@Nano Banana 2](mailto:support@Nano Banana 2)
 
 We are committed to resolving any issues promptly and respectfully.
 
 ---
 
-**HairRoom.app** – Your [AI Hairstyle](https://hairroom.app) Studio 💇‍♀️💇‍♂️
+**Nano Banana 2** – Your [AI Generator](https://Nano Banana 2) Studio 💇‍♀️💇‍♂️

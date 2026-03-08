@@ -1,13 +1,21 @@
-import { Outlet } from "react-router";
+import { Outlet, redirect } from "react-router";
 import type { Route } from "./+types/index";
 
 import { BaseLayout, type BaseLayoutProps } from "~/features/layout";
+import { getSessionHandler } from "~/.server/libs/session";
+import { Sidebar } from "./components/sidebar";
 
-export const loader = ({}: Route.LoaderArgs) => {
+export const loader = async ({ request }: Route.LoaderArgs) => {
+  const [session] = await getSessionHandler(request);
+  const user = session.get("user");
+
+  if (!user) {
+    throw redirect("/?login=true");
+  }
+
   const header: BaseLayoutProps["header"] = {
     navLinks: [
-      { label: "AI Hairstyle", to: "/" },
-      { label: "How it Works", to: "/#how-it-works" },
+      { label: "AI Generator", to: "/" },
       { label: "Pricing", to: "/#pricing" },
       { label: "FAQs", to: "/#faqs" },
     ],
@@ -17,14 +25,14 @@ export const loader = ({}: Route.LoaderArgs) => {
     navLinks: [
       {
         label: "Tools",
-        list: [{ to: "/", label: "AI Hairstyle" }],
+        list: [{ to: "/", label: "AI Generator" }],
       },
       {
         label: "Support",
         list: [
           {
-            to: "mailto:support@example.com",
-            label: "support@example.com",
+            to: "mailto:support@nanobanana2pro.space",
+            label: "support@nanobanana2pro.space",
             target: "_blank",
           },
         ],
@@ -34,21 +42,26 @@ export const loader = ({}: Route.LoaderArgs) => {
         list: [
           { to: "/legal/terms", label: "Terms of Use", target: "_blank" },
           { to: "/legal/privacy", label: "Privacy Policy", target: "_blank" },
-          { to: "/legal/cookie", label: "Cookie Policy", target: "_blank" },
+          { to: "/legal/refund", label: "Refund Policy", target: "_blank" },
         ],
       },
     ],
   };
 
-  return { header, footer };
+  return { header, footer, user };
 };
 
 export default function Layout({
-  loaderData: { header, footer },
+  loaderData: { header, footer, user },
 }: Route.ComponentProps) {
   return (
     <BaseLayout header={header} footer={footer}>
-      <Outlet />
+      <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row min-h-[calc(100vh-200px)]">
+        <Sidebar />
+        <main className="flex-1 min-w-0 md:ml-8 mt-6 md:mt-0">
+          <Outlet context={{ user }} />
+        </main>
+      </div>
     </BaseLayout>
   );
 }

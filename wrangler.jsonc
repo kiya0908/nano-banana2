@@ -4,10 +4,12 @@
  */
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "ai-hairstyle",
+  "name": "nanobanana2pro",
   "main": "./workers/app.ts",
   "compatibility_date": "2025-04-04",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "upload_source_maps": true,
   // "routes": [
   //   {
@@ -23,7 +25,7 @@
     // Secrets
     "SESSION_SECRET": "qf!XhJh^YL8lFUGA",
     // Other Parameters
-    "CDN_URL": "https://cdn.example.com", // CDN URL for R2
+    "CDN_URL": "https://cdn.nanobanana2pro.space", // CDN URL for R2
     "DOMAIN": "https://example.com/", // Deploy Domain
     "GOOGLE_ANALYTICS_ID": "G-XXXXXXX", // GA
     "GOOGLE_ADS_ID": "pub-xxxxxxxxxxxxxxxx", // Google AdSense
@@ -31,7 +33,7 @@
     "GOOGLE_CLIENT_ID": "xxxxxxxxx",
     "GOOGLE_CLIENT_SECRET": "xxxxxxxxx",
     // API Request Authroized
-    "KIEAI_APIKEY": "xxxxxxxxxxxx", // Kie for 4o API, Kontext API
+    "KIEAI_APIKEY": "xxxxxxxxxxxx", // Kie for API
     // Payment
     "CREEM_KEY": "creem_xxxxxxxxxx",
     "CREEM_TEST_KEY": "creem_test_xxxxxxxxxx",
@@ -51,21 +53,21 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "ai-hairstyle",
-      "database_id": "xxxxxxxxx",
+      "database_name": "nanobanana2pro",
+      "database_id": "97ded80b-6299-428f-940b-981357a997b0",
       "migrations_dir": "./app/.server/drizzle/migrations"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "xxxxxxxxx"
+      "id": "67330c02fe5945138b03c8c9ec56e4ee"
     }
   ],
   "r2_buckets": [
     {
       "binding": "R2",
-      "bucket_name": "ai-hairstyle"
+      "bucket_name": "nanobanana2pro"
     }
   ]
 }

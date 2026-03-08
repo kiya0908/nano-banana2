@@ -12,7 +12,8 @@
     "typecheck": "npm run cf-typegen && react-router typegen && tsc -b",
     "db:generate": "drizzle-kit generate --config app/.server/drizzle/config.ts",
     "db:migrate": "drizzle-kit migrate --config app/.server/drizzle/config.ts",
-    "db:migrate:local": "wrangler d1 migrations apply hairroom --local"
+    "db:migrate:local": "wrangler d1 migrations apply nanobanana2pro --local",
+    "db:migrate:remote": "wrangler d1 migrations apply nanobanana2pro --remote"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.22",
@@ -31,6 +32,7 @@
     "jszip": "^3.10.1",
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.513.0",
+    "motion": "^12.34.3",
     "nanoid": "^5.1.5",
     "react": "^19.1.0",
     "react-compare-slider": "^3.1.0",

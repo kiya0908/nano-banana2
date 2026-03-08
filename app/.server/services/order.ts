@@ -11,6 +11,7 @@ import {
   insertSubscription,
   updateSubscription,
   getSubscriptionById,
+  getSubscriptionByPlatformId,
 } from "~/.server/model/subscriptions";
 
 import {
@@ -24,7 +25,7 @@ import { createCreem } from "~/.server/libs/creem";
 import type { Customer, Subscription } from "~/.server/libs/creem/types";
 import type { User } from "~/.server/libs/db";
 
-import { PRICING_LIST } from "~/.server/constants/pricing";
+import { PRICING_LIST } from "~/constants/pricing";
 
 function generateUniqueOrderNo(prefix = "ORD") {
   const dateTimePart = dayjs().format("YYYYMMDDHHmmssSSS");
@@ -211,3 +212,86 @@ export const handleOrderRefund = async (checkoutId: string) => {
 
   return result;
 };
+
+/**
+ * 处理订阅取消事件（用户主动取消或平台取消）
+ * 将订阅状态更新为 cancelled，对应积分记录设为即时过期
+ */
+export const handleSubscriptionCanceled = async (subscriptionId: string) => {
+  const subscription = await getSubscriptionByPlatformId(subscriptionId);
+  if (!subscription) {
+    throw Error("Subscription not found");
+  }
+
+  // 更新订阅状态为 cancelled
+  await updateSubscription(subscription.id, {
+    status: "cancelled",
+    cancel_at: new Date(),
+  });
+
+  return subscription;
+};
+
+/**
+ * 处理订阅过期事件（到期未续费）
+ * 将订阅状态更新为 expired，清零对应的剩余积分
+ */
+export const handleSubscriptionExpired = async (subscriptionId: string) => {
+  const subscription = await getSubscriptionByPlatformId(subscriptionId);
+  if (!subscription) {
+    throw Error("Subscription not found");
+  }
+
+  // 更新订阅状态为 expired
+  await updateSubscription(subscription.id, {
+    status: "expired",
+    expired_at: new Date(),
+  });
+
+  return subscription;
+};
+
+/**
+ * 处理订阅续费事件（自动扣费成功）
+ * 延长订阅到期时间，并补充对应积分
+ */
+export const handleSubscriptionRenewal = async (subscriptionId: string) => {
+  const subscription = await getSubscriptionByPlatformId(subscriptionId);
+  if (!subscription) {
+    throw Error("Subscription not found");
+  }
+
+  const plan = PRICING_LIST.find((item) => item.id === subscription.plan_type);
+  if (!plan) {
+    throw Error("Invalid subscription plan");
+  }
+
+  // 计算新的到期时间
+  const newExpiredAt = dayjs()
+    .add(1, subscription.interval === "year" ? "year" : "month")
+    .endOf("day")
+    .toDate();
+
+  // 更新订阅记录
+  await updateSubscription(subscription.id, {
+    status: "active",
+    expired_at: newExpiredAt,
+    last_payment_at: new Date(),
+  });
+
+  // 补充积分
+  if (plan.limit.credits) {
+    await insertCreditRecord({
+      user_id: subscription.user_id,
+      credits: plan.limit.credits,
+      remaining_credits: plan.limit.credits,
+      trans_type: "subscription",
+      source_type: "subscription_renewal",
+      source_id: subscriptionId,
+      expired_at: newExpiredAt,
+    });
+  }
+
+  return subscription;
+};
+

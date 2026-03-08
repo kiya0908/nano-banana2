@@ -31,7 +31,12 @@ export function sessionWrapper() {
 
 export const getSessionHandler = async (request: Request) => {
   const action = sessionWrapper();
-  const session = await action.getSession(request.headers.get("Cookie"));
+  let session;
+  try {
+    session = await action.getSession(request.headers.get("Cookie"));
+  } catch (err) {
+    session = await action.getSession("");
+  }
 
   return [session, action] as const;
 };

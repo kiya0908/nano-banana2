@@ -38,6 +38,17 @@ export const getSubscriptionById = async (id: Subscription["id"]) => {
   });
 };
 
+// 通过平台订阅 ID 查找订阅记录
+export const getSubscriptionByPlatformId = async (
+  platformSubId: string
+) => {
+  const db = connectDB();
+
+  return await db.query.subscriptions.findFirst({
+    where: eq(schema.subscriptions.platform_sub_id, platformSubId),
+  });
+};
+
 // Get subscriptions by user ID
 export const getSubscriptionsByUserId = async (
   userId: Subscription["user_id"]

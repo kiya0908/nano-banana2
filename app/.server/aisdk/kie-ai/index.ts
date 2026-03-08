@@ -14,6 +14,27 @@ export type { Create4oTaskOptions, GPT4oTask, GPT4oTaskCallbackJSON };
 // Create Kontext Options
 export type { CreateKontextOptions, KontextTask };
 
+export interface CreateNanoBananaOptions {
+  inputImage: string;
+  prompt: string;
+  aspectRatio: string;
+  outputFormat: string;
+  callBackUrl?: string;
+  [key: string]: any;
+}
+
+export interface NanoBananaTask {
+  taskId: string;
+  status: "PENDING" | "GENERATING" | "SUCCESS" | "FAILED";
+  progress?: number;
+  response?: {
+    resultImageUrl?: string;
+    originImageUrl?: string;
+    [key: string]: any;
+  };
+  errorMessage?: string;
+}
+
 interface KieAIModelConfig {
   accessKey: string;
 }
@@ -136,6 +157,27 @@ export class KieAI {
   async queryKontextTask(params: QueryTaskParams) {
     const result = await this.fetch<KontextTask>(
       "/api/v1/flux/kontext/record-info",
+      params
+    );
+
+    return result.data;
+  }
+
+  async createNanoBananaTask(payload: CreateNanoBananaOptions) {
+    const result = await this.fetch<CreateTaskResult>(
+      "/api/v1/nanobanana/generate",
+      payload,
+      {
+        method: "post",
+      }
+    );
+
+    return result.data;
+  }
+
+  async queryNanoBananaTask(params: QueryTaskParams) {
+    const result = await this.fetch<NanoBananaTask>(
+      "/api/v1/nanobanana/record-info",
       params
     );
 

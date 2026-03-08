@@ -76,7 +76,7 @@ pnpm install
 }
 ```
 
-#### Cloudflare 服务配置
+**#### Cloudflare 服务配置
 
 创建并配置以下 Cloudflare 服务：
 
@@ -93,7 +93,7 @@ wrangler kv:namespace create "hairroom-kv"
 3. **R2 存储桶**:
 ```bash
 wrangler r2 bucket create hairroom
-```
+```**
 
 然后在 `wrangler.jsonc` 中配置绑定：
 
