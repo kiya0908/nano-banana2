@@ -4,9 +4,9 @@
  */
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "nanobanana2pro",
+  "name": "nano-banana2",
   "main": "./workers/app.ts",
-  "compatibility_date": "2025-04-04",
+  "compatibility_date": "2026-03-08",
   "compatibility_flags": [
     "nodejs_compat"
   ],
