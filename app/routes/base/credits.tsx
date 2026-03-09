@@ -1,7 +1,7 @@
 import { useLoaderData, useOutletContext } from "react-router";
 import type { Route } from "./+types/credits";
 import type { User, CreditRecord } from "~/.server/libs/db";
-import { getCreditRecordsByUserId } from "~/.server/model/credit_record";
+import { listCreditRecordsByUser } from "~/.server/model/credit_record";
 import { getSessionHandler } from "~/.server/libs/session";
 import { redirect } from "react-router";
 
@@ -10,7 +10,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
     const user = session.get("user");
     if (!user) throw redirect("/?login=true");
 
-    const records = await getCreditRecordsByUserId(user.id);
+    const records = await listCreditRecordsByUser(user.id);
     return { records };
 };
 
