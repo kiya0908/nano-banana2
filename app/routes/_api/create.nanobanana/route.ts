@@ -18,10 +18,17 @@ export const action = async ({ request }: Route.ActionArgs) => {
     }
 
     const form = await request.formData();
-    const raw = Object.fromEntries(form.entries());
+    const photo = form.get("photo") as File;
+    const prompt = form.get("prompt") as string;
+    const detail = form.get("detail") as string | null;
 
-    // Zod 参数校验
-    const json = createNanoBananaSchema.parse(raw);
+    console.log("FormData received:", { photo: photo?.name, prompt, detail });
+
+    if (!photo || !prompt) {
+        throw new Response("Missing required fields", { status: 400 });
+    }
+
+    const json = createNanoBananaSchema.parse({ photo, prompt, detail });
 
     const [session] = await getSessionHandler(request);
     const user = session.get("user");
@@ -33,7 +40,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
     } catch (e) {
         console.error("Create nanobanana task error");
         console.error(e);
-        throw new Response("Server Error", { status: 500 });
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        throw new Response(errorMessage, { status: 500 });
     }
 };
 

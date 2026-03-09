@@ -81,7 +81,9 @@ pnpm run db:migrate       # 更新生产环境数据库
 ### 5. 本地开发
 
 ```bash
+pnpm run build
 pnpm run dev
+pnpm run preview
 ```
 
 访问 `http://localhost:5173` 即可立即体验 nano banana 2 编辑器。
