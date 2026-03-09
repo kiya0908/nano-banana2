@@ -21,26 +21,9 @@
       "custom_domain": true
     }
   ],
-  "vars": {
-    // Secrets
-    "SESSION_SECRET": "YOUR_SESSION_SECRET",
-    // Other Parameters
-    "CDN_URL": "https://cdn.nanobanana2pro.space", // CDN URL for R2
-    "DOMAIN": "https://nanobanana2pro.space/", // Deploy Domain
-    "GOOGLE_ANALYTICS_ID": "G-XXXXXXX", // GA
-    "GOOGLE_ADS_ID": "pub-xxxxxxxxxxxxxxxx", // Google AdSense
-    // Google OAuth
-    "GOOGLE_CLIENT_ID": "YOUR_GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET": "YOUR_GOOGLE_CLIENT_SECRET",
-    // API Request Authroized
-    "KIEAI_APIKEY": "YOUR_KIEAI_APIKEY", // Kie for API
-    // Payment
-    "CREEM_KEY": "creem_xxxxxxxxxx",
-    "CREEM_TEST_KEY": "creem_test_xxxxxxxxxx",
-    "CREEM_WEBHOOK_SECRET": "xxxxxxxxxxx",
-    // Default Values
-    "INITLIZE_CREDITS": 3 // Basic Credits (Gift for new user)
-  },
+  // 生产环境变量已全部迁移至 Cloudflare Dashboard 手动配置
+  // 本地开发使用 .dev.vars 文件
+  // 删除 vars 配置以避免覆盖生产环境变量
   "observability": {
     "enabled": true
   },
