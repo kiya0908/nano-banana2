@@ -15,10 +15,12 @@ export type { Create4oTaskOptions, GPT4oTask, GPT4oTaskCallbackJSON };
 export type { CreateKontextOptions, KontextTask };
 
 export interface CreateNanoBananaOptions {
-  inputImage: string;
+  inputImage?: string;
   prompt: string;
-  aspectRatio: string;
-  outputFormat: string;
+  aspectRatio?: string;
+  outputFormat?: "jpg" | "png";
+  resolution?: "1K" | "2K" | "4K";
+  googleSearch?: boolean;
   callBackUrl?: string;
   [key: string]: any;
 }
@@ -46,6 +48,14 @@ interface CreateTaskResult {
 
 interface QueryTaskParams {
   taskId: string;
+}
+
+interface MarketTaskDetail {
+  taskId: string;
+  state: string;
+  resultJson?: string;
+  failMsg?: string;
+  progress?: number;
 }
 
 interface Get4oDirectDownloadURLOptions {
@@ -206,9 +216,22 @@ export class KieAI {
   }
 
   async createNanoBananaTask(payload: CreateNanoBananaOptions) {
+    const requestBody = {
+      model: "nano-banana-2",
+      callBackUrl: payload.callBackUrl,
+      input: {
+        prompt: payload.prompt,
+        aspect_ratio: payload.aspectRatio ?? "auto",
+        resolution: payload.resolution ?? "1K",
+        output_format: payload.outputFormat ?? "jpg",
+        google_search: payload.googleSearch ?? false,
+        image_input: payload.inputImage ? [payload.inputImage] : [],
+      },
+    };
+
     const result = await this.fetch<CreateTaskResult>(
-      "/api/v1/nanobanana/generate",
-      payload,
+      "/api/v1/jobs/createTask",
+      requestBody,
       {
         method: "post",
       }
@@ -218,11 +241,52 @@ export class KieAI {
   }
 
   async queryNanoBananaTask(params: QueryTaskParams) {
-    const result = await this.fetch<NanoBananaTask>(
-      "/api/v1/nanobanana/record-info",
+    const result = await this.fetch<MarketTaskDetail>(
+      "/api/v1/jobs/recordInfo",
       params
     );
 
-    return result.data;
+    let response: NanoBananaTask["response"];
+    const resultJson = result.data.resultJson;
+    if (resultJson) {
+      try {
+        const parsed = JSON.parse(resultJson) as {
+          resultUrls?: string[];
+          resultObject?: Record<string, unknown>;
+        };
+        const firstUrl =
+          parsed.resultUrls?.[0] ??
+          (Array.isArray(parsed.resultObject?.resultUrls)
+            ? (parsed.resultObject.resultUrls[0] as string | undefined)
+            : undefined);
+
+        if (firstUrl) {
+          response = {
+            resultImageUrl: firstUrl,
+            originImageUrl: firstUrl,
+          };
+        }
+      } catch {
+        // Ignore malformed result JSON and let caller handle missing URL.
+      }
+    }
+
+    const state = result.data.state.toLowerCase();
+    const status: NanoBananaTask["status"] =
+      state === "success"
+        ? "SUCCESS"
+        : state === "fail"
+          ? "FAILED"
+          : state === "generating"
+            ? "GENERATING"
+            : "PENDING";
+
+    return {
+      taskId: result.data.taskId,
+      status,
+      progress: result.data.progress,
+      response,
+      errorMessage: result.data.failMsg,
+    };
   }
 }
