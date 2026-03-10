@@ -23,6 +23,7 @@ import {
 
 import { createAiHairstyleChangerPrompt } from "~/.server/prompt/ai-hairstyle";
 import { createAiHairstyleChangerPrompt as createHairstyleChangerKontext } from "~/.server/prompt/ai-hairstyle-kontext";
+import { NANO_BANANA_TASK_CREDITS } from "~/constants/tasks";
 
 export type AiTaskResult = Pick<
   AiTask,
@@ -193,7 +194,7 @@ export const createNanoBananaTask = async (
   const { photo, prompt, detail } = value;
 
   // 扣减积分，这里先固定为 200
-  const taskCredits = 200;
+  const taskCredits = NANO_BANANA_TASK_CREDITS;
   const consumptionResult = await consumptionsCredits(user, {
     credits: taskCredits,
   });

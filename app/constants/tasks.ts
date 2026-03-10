@@ -1,0 +1,1 @@
+export const NANO_BANANA_TASK_CREDITS = 3;

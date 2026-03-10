@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { Upload, Wand2, Settings2, Loader2, Download } from 'lucide-react';
 import { useTranslation } from '../i18n/LanguageContext';
 import { useState, useRef, useEffect } from 'react';
+import { NANO_BANANA_TASK_CREDITS } from '~/constants/tasks';
 
 // 编辑器演示组件 - 模型选择、提示词和画布区域
 export default function EditorDemo() {
@@ -51,7 +52,19 @@ export default function EditorDemo() {
                 body: formData,
             });
 
-            if (!res.ok) throw new Error("Generation Failed");
+            if (!res.ok) {
+                const message = (await res.text()).trim();
+
+                if (res.status === 401) {
+                    throw new Error("Please sign in before generating an image.");
+                }
+
+                if (res.status === 402 || message === "Credits Insufficient") {
+                    throw new Error("Insufficient credits. Please upgrade or recharge before generating.");
+                }
+
+                throw new Error(message || "Generation failed.");
+            }
 
             const data = (await res.json()) as any;
             const newTaskNo = data.tasks?.[0]?.task_no;
@@ -64,7 +77,8 @@ export default function EditorDemo() {
 
         } catch (error) {
             console.error(error);
-            alert("An error occurred during task creation.");
+            const message = error instanceof Error ? error.message : "An error occurred during task creation.";
+            alert(message);
             setIsGenerating(false);
         }
     };
@@ -153,7 +167,7 @@ export default function EditorDemo() {
                                     <span className="text-sm font-medium text-white">Nano Banana 2</span>
                                 </div>
                                 <div className="flex items-center gap-3 ml-auto text-sm text-text-secondary">
-                                    <span className="text-xs opacity-60">200{t('editor.points')}</span>
+                                    <span className="text-xs opacity-60">{NANO_BANANA_TASK_CREDITS}{t('editor.points')}</span>
                                 </div>
                             </div>
                         </div>

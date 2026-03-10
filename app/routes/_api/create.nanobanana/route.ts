@@ -41,7 +41,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
         console.error("Create nanobanana task error");
         console.error(e);
         const errorMessage = e instanceof Error ? e.message : String(e);
-        throw new Response(errorMessage, { status: 500 });
+        const status = errorMessage === "Credits Insufficient" ? 402 : 500;
+        throw new Response(errorMessage, { status });
     }
 };
 
