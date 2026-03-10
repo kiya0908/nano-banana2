@@ -18,17 +18,29 @@ export const action = async ({ request }: Route.ActionArgs) => {
     }
 
     const form = await request.formData();
-    const photo = form.get("photo") as File;
-    const prompt = form.get("prompt") as string;
-    const detail = form.get("detail") as string | null;
+    const photo = form.get("photo");
+    const prompt = form.get("prompt");
+    const detail = form.get("detail");
 
-    console.log("FormData received:", { photo: photo?.name, prompt, detail });
+    console.log("FormData received:", {
+        photo: photo instanceof File ? photo.name : photo,
+        prompt,
+        detail,
+    });
 
-    if (!photo || !prompt) {
-        throw new Response("Missing required fields", { status: 400 });
+    const parsed = createNanoBananaSchema.safeParse({
+        photo,
+        prompt: typeof prompt === "string" ? prompt.trim() : "",
+        detail: typeof detail === "string" && detail.trim() ? detail : undefined,
+    });
+
+    if (!parsed.success) {
+        const message =
+            parsed.error.issues[0]?.message ?? "Invalid request payload";
+        throw new Response(message, { status: 400 });
     }
 
-    const json = createNanoBananaSchema.parse({ photo, prompt, detail });
+    const json = parsed.data;
 
     const [session] = await getSessionHandler(request);
     const user = session.get("user");
@@ -40,7 +52,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
     } catch (e) {
         console.error("Create nanobanana task error");
         console.error(e);
-        const errorMessage = e instanceof Error ? e.message : String(e);
+        const errorMessage =
+            e instanceof Error
+                ? e.message
+                : typeof e === "object" &&
+                    e !== null &&
+                    "message" in e &&
+                    typeof e.message === "string"
+                    ? e.message
+                    : String(e);
         const status = errorMessage === "Credits Insufficient" ? 402 : 500;
         throw new Response(errorMessage, { status });
     }
