@@ -37,6 +37,7 @@ export interface NanoBananaTask {
 
 interface KieAIModelConfig {
   accessKey: string;
+  baseUrl: string;
 }
 
 interface CreateTaskResult {
@@ -53,11 +54,19 @@ interface Get4oDirectDownloadURLOptions {
 }
 
 export class KieAI {
-  private API_URL = new URL("https://kieai.erweima.ai");
-  private readonly config: KieAIModelConfig = { accessKey: env.KIEAI_APIKEY };
+  private readonly API_URL: URL;
+  private readonly config: KieAIModelConfig;
 
-  constructor(config?: KieAIModelConfig) {
-    if (config) this.config = config;
+  constructor(config?: Partial<KieAIModelConfig>) {
+    const envVars = env as unknown as Record<string, string | undefined>;
+    const baseUrl =
+      config?.baseUrl ?? envVars.KIEAI_BASE_URL ?? "https://api.kie.ai";
+
+    this.API_URL = new URL(baseUrl);
+    this.config = {
+      accessKey: config?.accessKey ?? env.KIEAI_APIKEY,
+      baseUrl: this.API_URL.toString(),
+    };
   }
 
   private async fetch<T = any>(
@@ -93,13 +102,42 @@ export class KieAI {
     }
 
     const response = await fetch(url, options);
-    const json = await response.json<ApiResult<T>>();
+    const responseText = await response.text();
 
-    if (!response.ok || json.code !== 200) {
+    let json: ApiResult<T> | null = null;
+    if (responseText) {
+      try {
+        json = JSON.parse(responseText) as ApiResult<T>;
+      } catch {
+        // Keep original response text for downstream error diagnosis.
+      }
+    }
+
+    if (!response.ok) {
+      throw {
+        code: json?.code ?? response.status,
+        message:
+          (json?.msg && json.msg.trim()) ||
+          responseText ||
+          response.statusText ||
+          "Request failed",
+        data: json?.data ?? (responseText || null),
+      };
+    }
+
+    if (!json) {
+      throw {
+        code: response.status,
+        message: "Invalid JSON response from KieAI",
+        data: responseText || null,
+      };
+    }
+
+    if (json.code !== 200) {
       throw {
         code: json.code ?? response.status,
         message: json.msg ?? response.statusText,
-        data: json ? json.data : json,
+        data: json.data ?? null,
       };
     }
 

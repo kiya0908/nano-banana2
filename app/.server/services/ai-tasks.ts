@@ -63,6 +63,35 @@ const transformResult = (value: AiTask): AiTaskResult => {
   };
 };
 
+const START_TASK_MAX_PENDING_MS = 60_000;
+
+class RetryableStartTaskError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RetryableStartTaskError";
+  }
+}
+
+const toMillis = (value: unknown): number | null => {
+  if (value instanceof Date) return value.valueOf();
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value < 10_000_000_000 ? value * 1000 : value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const asNumber = Number(value);
+    if (Number.isFinite(asNumber)) {
+      return asNumber < 10_000_000_000 ? asNumber * 1000 : asNumber;
+    }
+
+    const asDate = Date.parse(value);
+    if (!Number.isNaN(asDate)) return asDate;
+  }
+
+  return null;
+};
+
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error && error.message) return error.message;
 
@@ -77,6 +106,27 @@ const getErrorMessage = (error: unknown) => {
   }
 
   return String(error);
+};
+
+const serializeError = (error: unknown) => {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const value = error as Record<string, unknown>;
+    return {
+      message: getErrorMessage(error),
+      code: value.code,
+      data: value.data,
+    };
+  }
+
+  return { message: String(error) };
 };
 
 export const createAiTask = async (payload: InsertAiTask | InsertAiTask[]) => {
@@ -268,12 +318,12 @@ export const startTask = async (params: AiTask["task_no"] | AiTask) => {
   } else task = params;
 
   if (task.status !== "pending") {
-    throw Error("Task is not in Pending");
+    throw new RetryableStartTaskError("Task is not in Pending");
   }
 
-  const startAt = task.estimated_start_at.valueOf();
-  if (startAt > new Date().valueOf()) {
-    throw Error("Not Allow to Start");
+  const startAt = toMillis(task.estimated_start_at);
+  if (startAt !== null && startAt > Date.now()) {
+    throw new RetryableStartTaskError("Not Allow to Start");
   }
 
   const kie = new KieAI();
@@ -338,13 +388,35 @@ export const updateTaskStatus = async (taskNo: AiTask["task_no"] | AiTask) => {
     } catch (error) {
       const message = getErrorMessage(error);
 
-      // Scheduling/race related errors can be retried on next polling tick.
-      if (
-        message === "Not Allow to Start" ||
-        message === "Task is not in Pending"
-      ) {
+      // Retry only for internal scheduler/race conditions.
+      if (error instanceof RetryableStartTaskError) {
         const latestTask = await getAiTaskByTaskNo(task.task_no);
-        return { task: transformResult(latestTask ?? task), progress: 0 };
+        const currentTask = latestTask ?? task;
+
+        if (currentTask.status !== "pending") {
+          return {
+            task: transformResult(currentTask),
+            progress: currentTask.status === "running" ? 0 : 1,
+          };
+        }
+
+        const createdAt = toMillis(currentTask.created_at) ?? Date.now();
+        if (Date.now() - createdAt < START_TASK_MAX_PENDING_MS) {
+          return { task: transformResult(currentTask), progress: 0 };
+        }
+
+        const timeoutMessage = `Task start timeout: ${message}`;
+        const [failedTask] = await updateAiTask(currentTask.task_no, {
+          status: "failed",
+          completed_at: new Date(),
+          fail_reason: timeoutMessage,
+          result_data: {
+            stage: "startTask",
+            error: serializeError(error),
+          },
+        });
+
+        return { task: transformResult(failedTask ?? currentTask), progress: 1 };
       }
 
       console.error("Start task error");
@@ -354,6 +426,10 @@ export const updateTaskStatus = async (taskNo: AiTask["task_no"] | AiTask) => {
         status: "failed",
         completed_at: new Date(),
         fail_reason: message,
+        result_data: {
+          stage: "startTask",
+          error: serializeError(error),
+        },
       });
       return { task: transformResult(failedTask ?? task), progress: 1 };
     }
@@ -367,162 +443,176 @@ export const updateTaskStatus = async (taskNo: AiTask["task_no"] | AiTask) => {
 
   if (!task.task_id) throw Error("Unvalid Task ID");
 
-  const kie = new KieAI();
+  try {
+    const kie = new KieAI();
 
-  if (task.provider === "kie_4o") {
-    const result = await kie.query4oTaskDetail({ taskId: task.task_id });
-    if (result.status === "GENERATING") {
-      return {
-        task: transformResult(task),
-        progress: currency(result.progress).intValue,
-      };
-    } else if (result.status === "SUCCESS") {
-      let resultUrl = result.response?.resultUrls[0];
-      let newTask: AiTask;
-      if (!resultUrl) {
-        const [aiTask] = await updateAiTask(task.task_no, {
-          status: "failed",
-          completed_at: new Date(),
-          result_data: result,
-          result_url: resultUrl,
-          fail_reason: "Result url not retrieved",
-        });
-        newTask = aiTask;
-      } else {
-        if (import.meta.env.PROD) {
-          try {
-            const [file] = await downloadFilesToBucket(
-              [{ src: resultUrl, fileName: task.task_no, ext: "png" }],
-              "result/hairstyle"
-            );
-            if (file) resultUrl = new URL(file.key, env.CDN_URL).toString();
-          } catch { }
+    if (task.provider === "kie_4o") {
+      const result = await kie.query4oTaskDetail({ taskId: task.task_id });
+      if (result.status === "GENERATING") {
+        return {
+          task: transformResult(task),
+          progress: currency(result.progress).intValue,
+        };
+      } else if (result.status === "SUCCESS") {
+        let resultUrl = result.response?.resultUrls[0];
+        let newTask: AiTask;
+        if (!resultUrl) {
+          const [aiTask] = await updateAiTask(task.task_no, {
+            status: "failed",
+            completed_at: new Date(),
+            result_data: result,
+            result_url: resultUrl,
+            fail_reason: "Result url not retrieved",
+          });
+          newTask = aiTask;
+        } else {
+          if (import.meta.env.PROD) {
+            try {
+              const [file] = await downloadFilesToBucket(
+                [{ src: resultUrl, fileName: task.task_no, ext: "png" }],
+                "result/hairstyle"
+              );
+              if (file) resultUrl = new URL(file.key, env.CDN_URL).toString();
+            } catch { }
+          }
+
+          const [aiTask] = await updateAiTask(task.task_no, {
+            status: "succeeded",
+            completed_at: new Date(),
+            result_data: result,
+            result_url: resultUrl,
+          });
+          newTask = aiTask;
         }
 
-        const [aiTask] = await updateAiTask(task.task_no, {
-          status: "succeeded",
-          completed_at: new Date(),
-          result_data: result,
-          result_url: resultUrl,
-        });
-        newTask = aiTask;
-      }
-
-      return { task: transformResult(newTask), progress: 1 };
-    } else {
-      const [newTask] = await updateAiTask(task.task_no, {
-        status: "failed",
-        completed_at: new Date(),
-        fail_reason: result.errorMessage,
-        result_data: result,
-      });
-
-      return { task: transformResult(newTask), progress: 1 };
-    }
-  } else if (task.provider === "kie_kontext") {
-    const result = await kie.queryKontextTask({ taskId: task.task_id });
-    if (result.successFlag === 0) {
-      return {
-        task: transformResult(task),
-        progress: 0,
-      };
-    } else if (result.successFlag === 1) {
-      let resultUrl =
-        result.response?.resultImageUrl ?? result.response?.originImageUrl;
-      let newTask: AiTask;
-      if (!resultUrl) {
-        const [aiTask] = await updateAiTask(task.task_no, {
+        return { task: transformResult(newTask), progress: 1 };
+      } else {
+        const [newTask] = await updateAiTask(task.task_no, {
           status: "failed",
           completed_at: new Date(),
+          fail_reason: result.errorMessage,
           result_data: result,
-          result_url: resultUrl,
-          fail_reason: "Result url not retrieved",
         });
-        newTask = aiTask;
-      } else {
-        if (import.meta.env.PROD) {
-          try {
-            const [file] = await downloadFilesToBucket(
-              [{ src: resultUrl, fileName: task.task_no, ext: "png" }],
-              "result/hairstyle"
-            );
-            if (file) resultUrl = new URL(file.key, env.CDN_URL).toString();
-          } catch { }
+
+        return { task: transformResult(newTask), progress: 1 };
+      }
+    } else if (task.provider === "kie_kontext") {
+      const result = await kie.queryKontextTask({ taskId: task.task_id });
+      if (result.successFlag === 0) {
+        return {
+          task: transformResult(task),
+          progress: 0,
+        };
+      } else if (result.successFlag === 1) {
+        let resultUrl =
+          result.response?.resultImageUrl ?? result.response?.originImageUrl;
+        let newTask: AiTask;
+        if (!resultUrl) {
+          const [aiTask] = await updateAiTask(task.task_no, {
+            status: "failed",
+            completed_at: new Date(),
+            result_data: result,
+            result_url: resultUrl,
+            fail_reason: "Result url not retrieved",
+          });
+          newTask = aiTask;
+        } else {
+          if (import.meta.env.PROD) {
+            try {
+              const [file] = await downloadFilesToBucket(
+                [{ src: resultUrl, fileName: task.task_no, ext: "png" }],
+                "result/hairstyle"
+              );
+              if (file) resultUrl = new URL(file.key, env.CDN_URL).toString();
+            } catch { }
+          }
+
+          const [aiTask] = await updateAiTask(task.task_no, {
+            status: "succeeded",
+            completed_at: new Date(),
+            result_data: result,
+            result_url: resultUrl,
+          });
+          newTask = aiTask;
         }
 
-        const [aiTask] = await updateAiTask(task.task_no, {
-          status: "succeeded",
-          completed_at: new Date(),
-          result_data: result,
-          result_url: resultUrl,
-        });
-        newTask = aiTask;
-      }
-
-      return { task: transformResult(newTask), progress: 1 };
-    } else {
-      const [newTask] = await updateAiTask(task.task_no, {
-        status: "failed",
-        completed_at: new Date(),
-        fail_reason: result.errorMessage,
-        result_data: result,
-      });
-
-      return { task: transformResult(newTask), progress: 1 };
-    }
-  } else if (task.provider === "nanobanana_2") {
-    const result = await kie.queryNanoBananaTask({ taskId: task.task_id });
-
-    if (result.status === "PENDING" || result.status === "GENERATING") {
-      return {
-        task: transformResult(task),
-        progress: result.progress ?? 0,
-      };
-    } else if (result.status === "SUCCESS") {
-      let resultUrl =
-        result.response?.resultImageUrl ?? result.response?.originImageUrl;
-      let newTask: AiTask;
-
-      if (!resultUrl) {
-        const [aiTask] = await updateAiTask(task.task_no, {
+        return { task: transformResult(newTask), progress: 1 };
+      } else {
+        const [newTask] = await updateAiTask(task.task_no, {
           status: "failed",
           completed_at: new Date(),
+          fail_reason: result.errorMessage,
           result_data: result,
-          result_url: resultUrl,
-          fail_reason: "Result url not retrieved from Nano Banana 2",
         });
-        newTask = aiTask;
-      } else {
-        if (import.meta.env.PROD) {
-          try {
-            const [file] = await downloadFilesToBucket(
-              [{ src: resultUrl, fileName: task.task_no, ext: "png" }],
-              "result/nanobanana"
-            );
-            if (file) resultUrl = new URL(file.key, env.CDN_URL).toString();
-          } catch { }
+
+        return { task: transformResult(newTask), progress: 1 };
+      }
+    } else if (task.provider === "nanobanana_2") {
+      const result = await kie.queryNanoBananaTask({ taskId: task.task_id });
+
+      if (result.status === "PENDING" || result.status === "GENERATING") {
+        return {
+          task: transformResult(task),
+          progress: result.progress ?? 0,
+        };
+      } else if (result.status === "SUCCESS") {
+        let resultUrl =
+          result.response?.resultImageUrl ?? result.response?.originImageUrl;
+        let newTask: AiTask;
+
+        if (!resultUrl) {
+          const [aiTask] = await updateAiTask(task.task_no, {
+            status: "failed",
+            completed_at: new Date(),
+            result_data: result,
+            result_url: resultUrl,
+            fail_reason: "Result url not retrieved from Nano Banana 2",
+          });
+          newTask = aiTask;
+        } else {
+          if (import.meta.env.PROD) {
+            try {
+              const [file] = await downloadFilesToBucket(
+                [{ src: resultUrl, fileName: task.task_no, ext: "png" }],
+                "result/nanobanana"
+              );
+              if (file) resultUrl = new URL(file.key, env.CDN_URL).toString();
+            } catch { }
+          }
+
+          const [aiTask] = await updateAiTask(task.task_no, {
+            status: "succeeded",
+            completed_at: new Date(),
+            result_data: result,
+            result_url: resultUrl,
+          });
+          newTask = aiTask;
         }
 
-        const [aiTask] = await updateAiTask(task.task_no, {
-          status: "succeeded",
+        return { task: transformResult(newTask), progress: 1 };
+      } else {
+        const [newTask] = await updateAiTask(task.task_no, {
+          status: "failed",
           completed_at: new Date(),
+          fail_reason: result.errorMessage ?? "Unknown Error",
           result_data: result,
-          result_url: resultUrl,
         });
-        newTask = aiTask;
+
+        return { task: transformResult(newTask), progress: 1 };
       }
-
-      return { task: transformResult(newTask), progress: 1 };
-    } else {
-      const [newTask] = await updateAiTask(task.task_no, {
-        status: "failed",
-        completed_at: new Date(),
-        fail_reason: result.errorMessage ?? "Unknown Error",
-        result_data: result,
-      });
-
-      return { task: transformResult(newTask), progress: 1 };
     }
+  } catch (error) {
+    const [failedTask] = await updateAiTask(task.task_no, {
+      status: "failed",
+      completed_at: new Date(),
+      fail_reason: getErrorMessage(error),
+      result_data: {
+        stage: "queryTask",
+        error: serializeError(error),
+      },
+    });
+
+    return { task: transformResult(failedTask ?? task), progress: 1 };
   }
 
   return {
