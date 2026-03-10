@@ -65,6 +65,10 @@ export class KieAI {
     data?: Record<string, any>,
     init: RequestInit = {}
   ) {
+    if (!this.config.accessKey) {
+      throw Error("KIEAI_APIKEY is not configured");
+    }
+
     const { headers, method = "get", ...rest } = init;
 
     const url = new URL(path, this.API_URL);

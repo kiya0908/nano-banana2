@@ -63,6 +63,22 @@ const transformResult = (value: AiTask): AiTaskResult => {
   };
 };
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) return error.message;
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return String(error);
+};
+
 export const createAiTask = async (payload: InsertAiTask | InsertAiTask[]) => {
   const values = Array.isArray(payload) ? Array.from(payload) : [payload];
   const results = await insertAiTaskBatch(values);
@@ -319,8 +335,27 @@ export const updateTaskStatus = async (taskNo: AiTask["task_no"] | AiTask) => {
         task: result,
         progress: 0,
       };
-    } catch {
-      return { task: transformResult(task), progress: 0 };
+    } catch (error) {
+      const message = getErrorMessage(error);
+
+      // Scheduling/race related errors can be retried on next polling tick.
+      if (
+        message === "Not Allow to Start" ||
+        message === "Task is not in Pending"
+      ) {
+        const latestTask = await getAiTaskByTaskNo(task.task_no);
+        return { task: transformResult(latestTask ?? task), progress: 0 };
+      }
+
+      console.error("Start task error");
+      console.error(error);
+
+      const [failedTask] = await updateAiTask(task.task_no, {
+        status: "failed",
+        completed_at: new Date(),
+        fail_reason: message,
+      });
+      return { task: transformResult(failedTask ?? task), progress: 1 };
     }
   }
   if (task.status !== "running") {
