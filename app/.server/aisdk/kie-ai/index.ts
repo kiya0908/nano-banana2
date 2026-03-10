@@ -124,6 +124,12 @@ export class KieAI {
     }
 
     if (!response.ok) {
+      console.error("KieAI HTTP error", {
+        url: url.toString(),
+        status: response.status,
+        bodyPreview: responseText.slice(0, 500),
+      });
+
       throw {
         code: json?.code ?? response.status,
         message:
@@ -136,6 +142,12 @@ export class KieAI {
     }
 
     if (!json) {
+      console.error("KieAI non-JSON response", {
+        url: url.toString(),
+        status: response.status,
+        bodyPreview: responseText.slice(0, 500),
+      });
+
       throw {
         code: response.status,
         message: "Invalid JSON response from KieAI",
@@ -144,6 +156,12 @@ export class KieAI {
     }
 
     if (json.code !== 200) {
+      console.error("KieAI business error", {
+        url: url.toString(),
+        code: json.code,
+        msg: json.msg,
+      });
+
       throw {
         code: json.code ?? response.status,
         message: json.msg ?? response.statusText,
