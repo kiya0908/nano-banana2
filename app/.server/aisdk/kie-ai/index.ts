@@ -15,9 +15,24 @@ export type { Create4oTaskOptions, GPT4oTask, GPT4oTaskCallbackJSON };
 export type { CreateKontextOptions, KontextTask };
 
 export interface CreateNanoBananaOptions {
-  inputImage?: string;
+  inputImages?: string[];
   prompt: string;
-  aspectRatio?: string;
+  aspectRatio?:
+    | "1:1"
+    | "1:4"
+    | "1:8"
+    | "2:3"
+    | "3:2"
+    | "3:4"
+    | "4:1"
+    | "4:3"
+    | "4:5"
+    | "5:4"
+    | "8:1"
+    | "9:16"
+    | "16:9"
+    | "21:9"
+    | "auto";
   outputFormat?: "jpg" | "png";
   resolution?: "1K" | "2K" | "4K";
   googleSearch?: boolean;
@@ -234,6 +249,8 @@ export class KieAI {
   }
 
   async createNanoBananaTask(payload: CreateNanoBananaOptions) {
+    const imageInput = (payload.inputImages ?? []).filter(Boolean);
+
     const requestBody = {
       model: "nano-banana-2",
       callBackUrl: payload.callBackUrl,
@@ -243,7 +260,7 @@ export class KieAI {
         resolution: payload.resolution ?? "1K",
         output_format: payload.outputFormat ?? "jpg",
         google_search: payload.googleSearch ?? false,
-        image_input: payload.inputImage ? [payload.inputImage] : [],
+        image_input: imageInput,
       },
     };
 

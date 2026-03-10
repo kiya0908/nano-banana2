@@ -43,7 +43,7 @@
     "CREEM_TEST_KEY": "creem_test_xxxxxxxxxx",
     "CREEM_WEBHOOK_SECRET": "xxxxxxxxxxx",
     // Default Values
-    "INITLIZE_CREDITS": 3 // Basic Credits (Gift for new user)
+    "INITLIZE_CREDITS": 3 // Basic Credits (Gift for new user)首赠用户积分
   },
   */
   "observability": {

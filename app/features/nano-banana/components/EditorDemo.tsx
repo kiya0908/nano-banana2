@@ -1,252 +1,713 @@
-import { motion } from 'motion/react';
-import { Upload, Wand2, Settings2, Loader2, Download } from 'lucide-react';
-import { useTranslation } from '../i18n/LanguageContext';
-import { useState, useRef, useEffect } from 'react';
-import { NANO_BANANA_TASK_CREDITS } from '~/constants/tasks';
+import { motion } from "motion/react";
+import {
+  Download,
+  ImagePlus,
+  Loader2,
+  Search,
+  Upload,
+  Wand2,
+  X,
+} from "lucide-react";
+import { useTranslation } from "../i18n/LanguageContext";
+import { useEffect, useRef, useState } from "react";
+import { NANO_BANANA_TASK_CREDITS } from "~/constants/tasks";
 
-// 编辑器演示组件 - 模型选择、提示词和画布区域
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const MAX_IMAGE_COUNT = 14;
+const MAX_IMAGE_SIZE_BYTES = 30 * 1024 * 1024;
+
+const ASPECT_RATIOS = [
+  "auto",
+  "1:1",
+  "1:4",
+  "1:8",
+  "2:3",
+  "3:2",
+  "3:4",
+  "4:1",
+  "4:3",
+  "4:5",
+  "5:4",
+  "8:1",
+  "9:16",
+  "16:9",
+  "21:9",
+] as const;
+
+const RESOLUTIONS = ["1K", "2K", "4K"] as const;
+const OUTPUT_FORMATS = ["jpg", "png"] as const;
+
+type AspectRatio = (typeof ASPECT_RATIOS)[number];
+type Resolution = (typeof RESOLUTIONS)[number];
+type OutputFormat = (typeof OUTPUT_FORMATS)[number];
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const normalizeProgress = (value: unknown) => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+
+  const percent = parsed <= 1 ? parsed * 100 : parsed;
+  return Math.max(0, Math.min(100, Math.round(percent)));
+};
+
 export default function EditorDemo() {
-    const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
-    const [file, setFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [prompt, setPrompt] = useState(t('editor.promptDefault'));
+  const tr = (key: string) => {
+    const value = t(key);
+    return typeof value === "string" ? value : key;
+  };
 
-    // 任务状态
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [resultImage, setResultImage] = useState<string | null>(null);
-    const [taskId, setTaskId] = useState<string | null>(null);
-
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const selectedFile = e.target.files[0];
-            setFile(selectedFile);
-            setPreviewUrl(URL.createObjectURL(selectedFile));
-            // Reset task status when importing a new file
-            setResultImage(null);
-            setProgress(0);
-            setTaskId(null);
-        }
-    };
-
-    const handleGenerate = async () => {
-        if (!file) {
-            alert(t('editor.needUpload') || "Please upload an image first.");
-            return;
-        }
-
-        setIsGenerating(true);
-        setProgress(0);
-        setResultImage(null);
-
-        try {
-            const formData = new FormData();
-            formData.append("photo", file);
-            formData.append("prompt", prompt);
-
-            const res = await fetch("/api/create/nanobanana", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const message = (await res.text()).trim();
-
-                if (res.status === 401) {
-                    throw new Error("Please sign in before generating an image.");
-                }
-
-                if (res.status === 402 || message === "Credits Insufficient") {
-                    throw new Error("Insufficient credits. Please upgrade or recharge before generating.");
-                }
-
-                throw new Error(message || "Generation failed.");
-            }
-
-            const data = (await res.json()) as any;
-            const newTaskNo = data.tasks?.[0]?.task_no;
-
-            if (newTaskNo) {
-                setTaskId(newTaskNo);
-            } else {
-                throw new Error("Missing Task ID");
-            }
-
-        } catch (error) {
-            console.error(error);
-            const message = error instanceof Error ? error.message : "An error occurred during task creation.";
-            alert(message);
-            setIsGenerating(false);
-        }
-    };
-
-    // 轮询检查任务状态
-    useEffect(() => {
-        if (!taskId) return;
-
-        let interval = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/task/${taskId}`);
-                const data = (await res.json()) as any;
-
-                if (data.progress) {
-                    setProgress(data.progress);
-                }
-
-                if (data.task?.status === "succeeded") {
-                    setResultImage(data.task.result_url);
-                    setIsGenerating(false);
-                    setProgress(100);
-                    clearInterval(interval);
-                } else if (data.task?.status === "failed") {
-                    alert(data.task.fail_reason || "Task failed on server.");
-                    setIsGenerating(false);
-                    clearInterval(interval);
-                }
-            } catch (error) {
-                console.error("Fetch status error:", error);
-            }
-        }, 3000);
-
-        return () => clearInterval(interval);
-    }, [taskId]);
-
-    return (
-        <section className="py-32">
-            <div className="max-w-[1400px] mx-auto px-6">
-                <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div>
-                        <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">{t('editor.title')}</h2>
-                        <p className="text-lg text-text-secondary">{t('editor.desc')}</p>
-                    </div>
-                    <a href="#" className="text-blue-400 hover:text-blue-300 flex items-center gap-2 transition-colors">
-                        {t('editor.mixboard')} <Wand2 size={16} />
-                    </a>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* 控制面板 */}
-                    <div className="lg:col-span-4 flex flex-col gap-4">
-                        {/* 描述词区域 */}
-                        <div className="bg-bg-surface border border-border-subtle rounded-3xl p-6 flex-1 flex flex-col">
-                            <h3 className="font-bold mb-3 text-sm text-text-secondary uppercase tracking-wider">{t('editor.prompt')}</h3>
-                            <textarea
-                                className="w-full bg-bg-deep border border-border-subtle rounded-xl p-4 text-white placeholder-text-secondary/50 resize-none flex-1 min-h-[220px] focus:outline-none focus:border-white/30 transition-colors text-base"
-                                placeholder={t('editor.promptPlaceholder')}
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                            ></textarea>
-                            <button
-                                onClick={handleGenerate}
-                                disabled={isGenerating || !file}
-                                className={`w-full mt-4 brand-gradient text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                {isGenerating ? (
-                                    <>
-                                        <Loader2 className="animate-spin" size={18} />
-                                        {progress > 0 ? `${progress}%` : t('editor.generating')}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Wand2 size={18} />
-                                        {t('editor.generate')}
-                                    </>
-                                )}
-                            </button>
-                        </div>
-
-                        {/* 模型选择区域 */}
-                        <div className="bg-bg-surface border border-border-subtle rounded-2xl px-4 py-3">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-text-secondary text-sm shrink-0">{t('editor.modelSelect')}:</span>
-                                <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-white/15 transition-colors">
-                                    <Settings2 size={14} className="text-yellow-400" />
-                                    <span className="text-sm font-medium text-white">Nano Banana 2</span>
-                                </div>
-                                <div className="flex items-center gap-3 ml-auto text-sm text-text-secondary">
-                                    <span className="text-xs opacity-60">{NANO_BANANA_TASK_CREDITS}{t('editor.points')}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 画布区域 */}
-                    <div className="lg:col-span-8 bg-bg-surface border border-border-subtle rounded-3xl p-2 relative min-h-[500px] flex flex-col items-center justify-center overflow-hidden">
-
-                        {/* 顶部按钮条 */}
-                        <div className="absolute top-6 left-6 z-10 flex gap-2">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                            />
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="bg-black/50 backdrop-blur-md border border-white/10 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-black/70 transition-colors"
-                            >
-                                <Upload size={16} /> {t('editor.uploadRef')}
-                            </button>
-                        </div>
-
-                        {/* 图片展示区 */}
-                        {resultImage ? (
-                            <div className="flex-1 w-full h-full rounded-2xl overflow-hidden relative group">
-                                <img
-                                    src={resultImage}
-                                    alt="Generated Result"
-                                    className="w-full h-full object-cover"
-                                    referrerPolicy="no-referrer"
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                    <a
-                                        href={resultImage}
-                                        download="nano-banana-result.png"
-                                        target="_blank"
-                                        className="bg-white text-black px-6 py-2 rounded-full font-bold text-sm hover:scale-105 transition-transform flex items-center gap-2"
-                                    >
-                                        <Download size={16} /> {t('editor.download')}
-                                    </a>
-                                </div>
-                            </div>
-                        ) : previewUrl ? (
-                            <div className="flex-1 w-full h-full rounded-2xl overflow-hidden relative">
-                                <img
-                                    src={previewUrl}
-                                    alt="Upload Preview"
-                                    className={`w-full h-full object-cover transition-all ${isGenerating ? 'opacity-50 blur-sm scale-105' : ''}`}
-                                />
-                                {isGenerating && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-                                        <Loader2 className="w-12 h-12 text-white animate-spin mb-4" />
-                                        <div className="bg-black/80 text-white px-4 py-2 rounded-full font-mono text-sm border border-white/10">
-                                            {progress}%
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="flex-1 w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl bg-white/5 m-4">
-                                <div className="text-text-secondary text-center">
-                                    <Upload size={48} className="mx-auto mb-4 opacity-50" />
-                                    <p className="font-medium text-white mb-2">{t('editor.uploadRef')}</p>
-                                    <p className="text-sm">PNG, JPG up to 10MB</p>
-                                    <button
-                                        className="mt-6 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-sm"
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        {t('editor.selectFile')}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </section>
+  const formatText = (
+    template: string,
+    variables: Record<string, string | number>
+  ) => {
+    return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) =>
+      String(variables[key] ?? "")
     );
+  };
+
+  const localizedDefaultPrompt = tr("editor.promptDefault");
+  const defaultPrompt =
+    localizedDefaultPrompt === "editor.promptDefault"
+      ? "A mechanical cat wearing a cyberpunk jacket on a neon-lit rainy street, cinematic lighting, ultra high 8k resolution generated by nano banana 2."
+      : localizedDefaultPrompt;
+
+  const [prompt, setPrompt] = useState(defaultPrompt);
+  const previousDefaultPromptRef = useRef(defaultPrompt);
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("auto");
+  const [resolution, setResolution] = useState<Resolution>("1K");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("jpg");
+  const [googleSearch, setGoogleSearch] = useState(false);
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [completedAt, setCompletedAt] = useState<number | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPrompt((currentPrompt) =>
+      currentPrompt === previousDefaultPromptRef.current
+        ? defaultPrompt
+        : currentPrompt
+    );
+    previousDefaultPromptRef.current = defaultPrompt;
+  }, [defaultPrompt, language]);
+
+  useEffect(() => {
+    const objectUrls = images.map((file) => URL.createObjectURL(file));
+    setImagePreviews(objectUrls);
+
+    return () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [images]);
+
+  const addFiles = (incomingFiles: File[]) => {
+    if (!incomingFiles.length) return;
+
+    const notices: string[] = [];
+
+    const uniqueIncoming = incomingFiles.filter((file, index, list) => {
+      return (
+        list.findIndex(
+          (candidate) =>
+            candidate.name === file.name &&
+            candidate.size === file.size &&
+            candidate.lastModified === file.lastModified
+        ) === index
+      );
+    });
+
+    const validIncoming: File[] = [];
+
+    for (const file of uniqueIncoming) {
+      if (
+        !ACCEPTED_IMAGE_TYPES.includes(
+          file.type as (typeof ACCEPTED_IMAGE_TYPES)[number]
+        )
+      ) {
+        notices.push(`${file.name}: ${tr("editorPanel.unsupportedFileType")}`);
+        continue;
+      }
+
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        notices.push(`${file.name}: ${tr("editorPanel.fileTooLarge")}`);
+        continue;
+      }
+
+      validIncoming.push(file);
+    }
+
+    if (!validIncoming.length) {
+      if (notices.length) alert(notices.join("\n"));
+      return;
+    }
+
+    const deduped = validIncoming.filter((file) => {
+      return !images.some(
+        (candidate) =>
+          candidate.name === file.name &&
+          candidate.size === file.size &&
+          candidate.lastModified === file.lastModified
+      );
+    });
+
+    const remainingSlots = MAX_IMAGE_COUNT - images.length;
+    const accepted = deduped.slice(0, Math.max(remainingSlots, 0));
+
+    if (accepted.length < deduped.length) {
+      notices.push(
+        formatText(tr("editorPanel.maxImagesAllowed"), {
+          count: MAX_IMAGE_COUNT,
+        })
+      );
+    }
+
+    if (accepted.length) {
+      setImages((prev) => [...prev, ...accepted]);
+    }
+
+    if (notices.length) {
+      alert(notices.join("\n"));
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) {
+      alert(tr("editorPanel.promptRequired"));
+      return;
+    }
+
+    setIsGenerating(true);
+    setProgress(0);
+    setResultImage(null);
+    setErrorMessage(null);
+    setCompletedAt(null);
+    setStartedAt(Date.now());
+
+    try {
+      const formData = new FormData();
+      formData.append("prompt", prompt.trim());
+      formData.append("aspect_ratio", aspectRatio);
+      formData.append("resolution", resolution);
+      formData.append("output_format", outputFormat);
+      formData.append("google_search", String(googleSearch));
+
+      images.forEach((image) => {
+        formData.append("images", image);
+      });
+
+      const res = await fetch("/api/create/nanobanana", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const message = (await res.text()).trim();
+
+        if (res.status === 401) {
+          throw new Error(tr("editorPanel.loginRequired"));
+        }
+
+        if (res.status === 402 || message === "Credits Insufficient") {
+          throw new Error(tr("editorPanel.creditsInsufficient"));
+        }
+
+        throw new Error(message || tr("editorPanel.generationFailed"));
+      }
+
+      const data = (await res.json()) as { tasks?: Array<{ task_no?: string }> };
+      const newTaskNo = data.tasks?.[0]?.task_no;
+
+      if (!newTaskNo) {
+        throw new Error(tr("editorPanel.missingTaskId"));
+      }
+
+      setTaskId(newTaskNo);
+    } catch (error) {
+      console.error(error);
+      setIsGenerating(false);
+      setCompletedAt(Date.now());
+      setErrorMessage(
+        error instanceof Error ? error.message : tr("editorPanel.taskCreateError")
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (!taskId) return;
+
+    let stopped = false;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/task/${taskId}`);
+        if (!res.ok) {
+          throw new Error((await res.text()).trim() || tr("editorPanel.taskQueryFailed"));
+        }
+
+        const data = (await res.json()) as {
+          progress?: number;
+          task?: {
+            status?: string;
+            result_url?: string;
+            fail_reason?: string;
+          };
+        };
+
+        if (stopped) return;
+
+        if (typeof data.progress !== "undefined") {
+          setProgress(normalizeProgress(data.progress));
+        }
+
+        if (data.task?.status === "succeeded") {
+          setResultImage(data.task.result_url ?? null);
+          setProgress(100);
+          setIsGenerating(false);
+          setCompletedAt(Date.now());
+          setTaskId(null);
+        } else if (data.task?.status === "failed") {
+          setErrorMessage(data.task.fail_reason || tr("editorPanel.taskFailedServer"));
+          setIsGenerating(false);
+          setCompletedAt(Date.now());
+          setTaskId(null);
+        }
+      } catch (error) {
+        if (!stopped) {
+          console.error("Fetch status error:", error);
+        }
+      }
+    };
+
+    poll();
+    const timer = setInterval(poll, 3000);
+
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [taskId]);
+
+  const resetEditor = () => {
+    if (isGenerating) return;
+
+    setPrompt(defaultPrompt);
+    setImages([]);
+    setAspectRatio("auto");
+    setResolution("1K");
+    setOutputFormat("jpg");
+    setGoogleSearch(false);
+    setResultImage(null);
+    setProgress(0);
+    setTaskId(null);
+    setErrorMessage(null);
+    setStartedAt(null);
+    setCompletedAt(null);
+  };
+
+  const renderStatusText = () => {
+    if (isGenerating) {
+      return formatText(tr("editorPanel.statusGenerating"), { progress });
+    }
+
+    if (errorMessage) {
+      return tr("editorPanel.statusFailed");
+    }
+
+    if (resultImage) {
+      return tr("editorPanel.statusComplete");
+    }
+
+    return tr("editorPanel.statusReady");
+  };
+
+  const elapsedTimeText =
+    startedAt && completedAt
+      ? formatText(tr("editorPanel.elapsedGenerated"), {
+          seconds: ((completedAt - startedAt) / 1000).toFixed(2),
+        })
+      : tr("editorPanel.elapsedWaiting");
+
+  const displayImage = resultImage ?? imagePreviews[0] ?? null;
+
+  return (
+    <section className="py-24">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
+        <div className="mb-10 flex flex-col gap-3">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-white">
+            {t("editor.title")}
+          </h2>
+          <p className="max-w-3xl text-base text-text-secondary md:text-lg">
+            {t("editor.desc")}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.45 }}
+            className="rounded-[28px] border border-slate-200/80 bg-slate-50 p-5 shadow-[0_28px_65px_rgba(15,23,42,0.2)] sm:p-6"
+          >
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-900">
+                {tr("editorPanel.promptLabel")} <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                className="min-h-[140px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none transition focus:border-blue-500"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder={t("editor.promptPlaceholder")}
+              />
+              <p className="mt-2 text-xs text-slate-500">{tr("editorPanel.promptHelp")}</p>
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-2 text-sm font-semibold text-slate-900">
+                {tr("editorPanel.imageInputLabel")}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                className="hidden"
+                onChange={(event) => {
+                  const selected = event.currentTarget.files
+                    ? Array.from(event.currentTarget.files)
+                    : [];
+                  addFiles(selected);
+                  event.currentTarget.value = "";
+                }}
+              />
+
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setIsDragging(false);
+                  addFiles(Array.from(event.dataTransfer.files));
+                }}
+                className={`cursor-pointer rounded-2xl border-2 border-dashed p-5 text-center transition ${
+                  isDragging
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-slate-300 bg-white hover:border-blue-400"
+                }`}
+              >
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                  <ImagePlus size={24} />
+                </div>
+                <p className="text-sm font-medium text-slate-700">
+                  {tr("editorPanel.uploadHint")}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  {formatText(tr("editorPanel.fileSupportHint"), {
+                    count: MAX_IMAGE_COUNT,
+                  })}
+                </p>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
+                >
+                  <Upload size={16} /> {tr("editorPanel.selectFiles")}
+                </button>
+              </div>
+
+              {images.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {images.map((file, index) => (
+                    <div
+                      key={`${file.name}-${file.lastModified}-${index}`}
+                      className="relative overflow-hidden rounded-xl border border-slate-200 bg-white"
+                    >
+                      <img
+                        src={imagePreviews[index]}
+                        alt={file.name}
+                        className="h-20 w-full object-cover"
+                      />
+                      <div className="space-y-1 p-2">
+                        <p
+                          className="truncate text-[11px] font-medium text-slate-700"
+                          title={file.name}
+                        >
+                          {file.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setImages((prev) =>
+                            prev.filter((_, imageIndex) => imageIndex !== index)
+                          )
+                        }
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white transition hover:bg-black/80"
+                        aria-label={formatText(tr("editorPanel.removeFileAria"), {
+                          fileName: file.name,
+                        })}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p className="mt-2 text-xs text-slate-500">
+                {tr("editorPanel.imageInputHelp")}
+              </p>
+            </div>
+
+            <div className="mt-5">
+              <label className="mb-2 block text-sm font-semibold text-slate-900">
+                {tr("editorPanel.aspectRatioLabel")}
+              </label>
+              <select
+                value={aspectRatio}
+                onChange={(event) => setAspectRatio(event.target.value as AspectRatio)}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500"
+              >
+                {ASPECT_RATIOS.map((ratio) => (
+                  <option key={ratio} value={ratio}>
+                    {ratio}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-slate-500">
+                {tr("editorPanel.aspectRatioHelp")}
+              </p>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="pr-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  {tr("editorPanel.googleSearchLabel")}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {tr("editorPanel.googleSearchHelp")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGoogleSearch((value) => !value)}
+                className={`relative h-7 w-12 rounded-full transition ${
+                  googleSearch ? "bg-blue-600" : "bg-slate-300"
+                }`}
+                aria-pressed={googleSearch}
+              >
+                <span
+                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition ${
+                    googleSearch ? "left-5" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-sm font-semibold text-slate-900">
+                {tr("editorPanel.resolutionLabel")}
+              </p>
+              <div className="mt-2 flex gap-2">
+                {RESOLUTIONS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setResolution(value)}
+                    className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                      resolution === value
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {tr("editorPanel.resolutionHelp")}
+              </p>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-sm font-semibold text-slate-900">
+                {tr("editorPanel.outputFormatLabel")}
+              </p>
+              <div className="mt-2 flex gap-2">
+                {OUTPUT_FORMATS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setOutputFormat(value)}
+                    className={`rounded-xl border px-4 py-2 text-sm font-semibold uppercase transition ${
+                      outputFormat === value
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-blue-300"
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {tr("editorPanel.outputFormatHelp")}
+              </p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
+              <button
+                type="button"
+                onClick={resetEditor}
+                disabled={isGenerating}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {tr("editorPanel.reset")}
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={isGenerating || !prompt.trim()}
+                className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    {progress}%
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={16} />{" "}
+                    {formatText(tr("editorPanel.runWithCredits"), {
+                      credits: NANO_BANANA_TASK_CREDITS,
+                    })}
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.45, delay: 0.05 }}
+            className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_28px_65px_rgba(15,23,42,0.2)] sm:p-5"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm text-slate-500">
+                {tr("editorPanel.outputTypeLabel")}
+              </div>
+              <div className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold uppercase text-blue-700">
+                {tr("editorPanel.outputTypeImage")}
+              </div>
+            </div>
+
+            <div className="relative min-h-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+              {displayImage ? (
+                <img
+                  src={displayImage}
+                  alt={tr("editorPanel.previewAlt")}
+                  className={`h-full w-full object-cover transition ${
+                    isGenerating ? "scale-[1.02] opacity-70 blur-[1px]" : "opacity-100"
+                  }`}
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center text-slate-500">
+                  <ImagePlus size={46} className="mb-3 opacity-60" />
+                  <p className="text-lg font-semibold text-slate-700">
+                    {tr("editorPanel.previewEmptyTitle")}
+                  </p>
+                  <p className="mt-2 text-sm">{tr("editorPanel.previewEmptyDesc")}</p>
+                </div>
+              )}
+
+              {isGenerating && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/40 text-white">
+                  <Loader2 className="mb-3 animate-spin" size={34} />
+                  <p className="text-sm font-semibold">
+                    {tr("editorPanel.generatingImage")}
+                  </p>
+                  <p className="text-xs text-white/80">{progress}%</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Search size={14} />
+                  <span>{elapsedTimeText}</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-300"
+                    style={{ width: `${isGenerating ? Math.max(progress, 6) : progress}%` }}
+                  />
+                </div>
+                <div className="mt-2 text-xs font-medium text-slate-500">
+                  {tr("editorPanel.statusLabel")}: {renderStatusText()}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                {resultImage && (
+                  <a
+                    href={resultImage}
+                    download={`nano-banana-result.${outputFormat}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                  >
+                    <Download size={14} /> {tr("editor.download")}
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {errorMessage && (
+              <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {errorMessage}
+              </p>
+            )}
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
 }

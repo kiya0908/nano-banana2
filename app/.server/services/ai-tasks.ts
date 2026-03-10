@@ -144,7 +144,7 @@ export const createAiHairstyle = async (
 
   const taskCredits = hairstyle.length;
 
-  // 进行 Credits 扣除
+  // Deduct credits for the task batch.
   const consumptionResult = await consumptionsCredits(user, {
     credits: taskCredits,
   });
@@ -254,43 +254,69 @@ export const createAiHairstyle = async (
 };
 
 export const createNanoBananaTask = async (
-  value: { photo: File; prompt: string; detail?: string },
+  value: {
+    prompt: string;
+    images?: File[];
+    detail?: string;
+    aspect_ratio?: CreateNanoBananaOptions["aspectRatio"];
+    resolution?: CreateNanoBananaOptions["resolution"];
+    output_format?: CreateNanoBananaOptions["outputFormat"];
+    google_search?: boolean;
+  },
   user: User
 ) => {
-  const { photo, prompt, detail } = value;
+  const {
+    prompt,
+    images = [],
+    detail,
+    aspect_ratio = "auto",
+    resolution = "1K",
+    output_format = "jpg",
+    google_search = false,
+  } = value;
 
-  // 扣减积分，这里先固定为 200
   const taskCredits = NANO_BANANA_TASK_CREDITS;
   const consumptionResult = await consumptionsCredits(user, {
     credits: taskCredits,
   });
 
-  const extName = photo.name.split(".").pop()!;
-  const newFileName = `${nanoid()}.${extName}`;
-  const file = new File([photo], newFileName);
-  const [R2Object] = await uploadFiles(file);
+  const filesForUpload = images.map((photo) => {
+    const extName = photo.name.split(".").pop() ?? "png";
+    return new File([photo], `${nanoid()}.${extName}`);
+  });
 
-  const fileUrl = new URL(R2Object.key, env.CDN_URL).toString();
+  const uploadedFiles = filesForUpload.length
+    ? await uploadFiles(filesForUpload)
+    : [];
+  const imageUrls = uploadedFiles.map((file) =>
+    new URL(file.key, env.CDN_URL).toString()
+  );
 
-  const aspect = "1:1";
   const callbakUrl = new URL("/webhooks/kie-image", env.DOMAIN).toString();
 
   const inputParams = {
-    prompt: prompt,
-    image_url: fileUrl,
+    prompt,
+    image_urls: imageUrls,
+    aspect_ratio,
+    resolution,
+    output_format,
+    google_search,
     detail,
   };
 
   const ext = {
-    mode: "default",
-    style: "default",
+    mode: imageUrls.length ? "image-plus-prompt" : "prompt-only",
+    input_image_count: imageUrls.length,
+    output_format,
   };
 
   const params: CreateNanoBananaOptions = {
-    inputImage: fileUrl,
-    prompt: prompt,
-    aspectRatio: aspect,
-    outputFormat: "png",
+    inputImages: imageUrls,
+    prompt,
+    aspectRatio: aspect_ratio,
+    resolution,
+    outputFormat: output_format,
+    googleSearch: google_search,
     callBackUrl: import.meta.env.PROD ? callbakUrl : undefined,
   };
 
@@ -300,7 +326,7 @@ export const createNanoBananaTask = async (
     estimated_start_at: new Date(),
     input_params: inputParams,
     ext,
-    aspect: aspect,
+    aspect: aspect_ratio,
     provider: "nanobanana_2",
     request_param: params,
   };
@@ -308,7 +334,6 @@ export const createNanoBananaTask = async (
   const tasks = await createAiTask(insertPayload);
   return { tasks, consumptionCredits: consumptionResult };
 };
-
 export const startTask = async (params: AiTask["task_no"] | AiTask) => {
   let task: AiTask;
   if (typeof params === "string") {
@@ -366,10 +391,10 @@ export const startTask = async (params: AiTask["task_no"] | AiTask) => {
 };
 
 /**
- * 更新生成任务的状态，依据 status 处理
- * - pending: 尝试 startTask
- * - running: 尝试更新 task detail
- * - 其他值: 返回处理后的 task 内容
+ * Update task state by current status:
+ * - pending: try startTask
+ * - running: query and refresh task detail
+ * - others: return current task payload
  */
 export const updateTaskStatus = async (taskNo: AiTask["task_no"] | AiTask) => {
   let task: AiTask | undefined | null;
@@ -572,8 +597,13 @@ export const updateTaskStatus = async (taskNo: AiTask["task_no"] | AiTask) => {
         } else {
           if (import.meta.env.PROD) {
             try {
+              const requestParams = task.request_param as
+                | CreateNanoBananaOptions
+                | undefined;
+              const outputExt =
+                requestParams?.outputFormat === "png" ? "png" : "jpg";
               const [file] = await downloadFilesToBucket(
-                [{ src: resultUrl, fileName: task.task_no, ext: "png" }],
+                [{ src: resultUrl, fileName: task.task_no, ext: outputExt }],
                 "result/nanobanana"
               );
               if (file) resultUrl = new URL(file.key, env.CDN_URL).toString();
@@ -629,3 +659,4 @@ export const updateTaskStatusByTaskId = async (taskId: AiTask["task_id"]) => {
 
   await updateTaskStatus(result);
 };
+
