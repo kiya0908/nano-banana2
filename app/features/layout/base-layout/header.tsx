@@ -30,7 +30,7 @@ export const Header = ({ navLinks }: HeaderProps) => {
       <header
         data-scroll={isScroll}
         className={clsx(
-          "fixed top-0 left-0 w-full z-50 transition-all duration-300",
+          "sticky top-0 left-0 w-full z-50 transition-all duration-300",
           "bg-transparent h-24 data-[scroll=true]:h-16 max-md:h-16",
           "data-[scroll=true]:bg-white/90 data-[scroll=true]:shadow data-[scroll=true]:backdrop-blur"
         )}
