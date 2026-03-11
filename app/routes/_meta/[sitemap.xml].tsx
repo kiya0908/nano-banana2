@@ -9,7 +9,12 @@ const defaultSitemaps: Sitemaps[] = [
   {
     path: "/",
     priority: "1.0",
-    lastmod: new Date("2025-06-13"),
+    lastmod: new Date("2026-03-11"),
+  },
+  {
+    path: "/zh",
+    priority: "0.9",
+    lastmod: new Date("2026-03-11"),
   },
   {
     path: "/legal/privacy",
@@ -19,12 +24,12 @@ const defaultSitemaps: Sitemaps[] = [
   {
     path: "/legal/terms",
     priority: "0.6",
-    lastmod: new Date("2025-06-13"),
+    lastmod: new Date("2026-03-11"),
   },
   {
     path: "/legal/cookie",
     priority: "0.6",
-    lastmod: new Date("2025-06-13"),
+    lastmod: new Date("2026-03-11"),
   },
 ];
 

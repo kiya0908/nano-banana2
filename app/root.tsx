@@ -6,6 +6,7 @@ import {
   Outlet,
   data,
   useLoaderData,
+  useLocation,
 } from "react-router";
 
 import { useEffect } from "react";
@@ -32,10 +33,12 @@ export const loader = async ({ context }: Route.LoaderArgs) => {
 
 export const Layout = ({ children }: React.PropsWithChildren) => {
   const data = useLoaderData<typeof loader>();
+  const { pathname } = useLocation();
+  const lang = pathname === "/zh" || pathname.startsWith("/zh/") ? "zh" : "en";
 
   return (
     <Document
-      lang="en"
+      lang={lang}
       theme="cupcake"
       DOMAIN={data?.DOMAIN}
       // GOOGLE_ADS_ID={data?.GOOGLE_ADS_ID} // 控制是否加载 AdSense 的自动广告

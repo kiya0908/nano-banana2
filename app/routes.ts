@@ -15,6 +15,7 @@ const legalRoutes = await flatRoutes({ rootDirectory: "./routes/_legal" });
 export default [
   // Nano Banana 首页 — 独立路由，不经过 BaseLayout
   index("./routes/home.tsx"),
+  route("zh", "./routes/zh.tsx"),
   // 其他需要 BaseLayout 的页面
   ...prefix("base", [
     layout("./routes/base/layout/index.tsx", [
