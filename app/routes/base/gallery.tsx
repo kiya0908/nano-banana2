@@ -5,6 +5,28 @@ import { listAiTasksByUser } from "~/.server/model/ai_tasks";
 import { getSessionHandler } from "~/.server/libs/session";
 import { redirect } from "react-router";
 
+const getTaskPrompt = (inputParams: unknown) => {
+    if (!inputParams) return "No prompt";
+
+    if (typeof inputParams === "string") {
+        try {
+            const parsed = JSON.parse(inputParams) as { prompt?: unknown };
+            return typeof parsed.prompt === "string" && parsed.prompt.trim()
+                ? parsed.prompt
+                : "No prompt";
+        } catch {
+            return "No prompt";
+        }
+    }
+
+    if (typeof inputParams === "object" && inputParams !== null && "prompt" in inputParams) {
+        const prompt = (inputParams as { prompt?: unknown }).prompt;
+        return typeof prompt === "string" && prompt.trim() ? prompt : "No prompt";
+    }
+
+    return "No prompt";
+};
+
 export const loader = async ({ request }: Route.LoaderArgs) => {
     const [session] = await getSessionHandler(request);
     const user = session.get("user");
@@ -47,7 +69,7 @@ export default function GalleryPage({ loaderData }: Route.ComponentProps) {
                                 />
                                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <p className="text-white text-xs truncate">
-                                        {task.input_params ? JSON.parse(task.input_params as string).prompt : "No prompt"}
+                                        {getTaskPrompt(task.input_params)}
                                     </p>
                                 </div>
                             </div>
