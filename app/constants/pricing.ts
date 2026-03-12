@@ -1,3 +1,4 @@
+// Subscription plans and Creem product bindings.
 export interface PLAN {
   id: string;
   popular: boolean;
@@ -5,64 +6,130 @@ export interface PLAN {
   price: { monthly: number; yearly: number };
   name: string;
   description: string;
+  yearly_description?: string;
+  feature_description: string[];
   limit: {
-    adblock: boolean; // 是否关闭广告
-    watermarks: boolean; // 生成的结果是否显示水印
-    highResolution: boolean; // 是否生成高质量图像
-    fullStyles: boolean; // 是否允许使用完整风格
-    credits: number; // 每月赠送积分
-    private: boolean; // 是否私有化生成
-    features: boolean; // 允许使用实验性功能
+    adblock: boolean;
+    watermarks: boolean;
+    highResolution: boolean;
+    fullStyles: boolean;
+    credits: { monthly: number; yearly: number };
+    private: boolean;
+    features: boolean;
   };
 }
 
-// 免费方案
+// Creem test product IDs.
+export const CREEM_TEST_PRODUCT_IDS = {
+  credits: "prod_77Xj3YpfRM0OvLm2lGSO81",
+  basicMonthly: "prod_7YjALT2jGck6urOhF5c9eY",
+  proMonthly: "prod_7fd4FH33suoTnUkg9uN0xt",
+  proYearly: "prod_6Fb51lq3LL7rRFtUuyuxar",
+} as const;
+
+// Creem live product IDs.
+export const CREEM_LIVE_PRODUCT_IDS = {
+  credits: "prod_nTG9QowjMnLIFxLXrjUO",
+  basicMonthly: "prod_68vCzqxlaaGpHVRUwaC1Ke",
+  proMonthly: "prod_2n5YxziKFezbUrhzX6dKxn",
+  proYearly: "prod_3LgwlSFZqQeZiKM3DaMlZ6",
+} as const;
+
+// Switch product IDs automatically by runtime mode.
+export const CREEM_ACTIVE_PRODUCT_IDS = import.meta.env.PROD
+  ? CREEM_LIVE_PRODUCT_IDS
+  : CREEM_TEST_PRODUCT_IDS;
+
 export const FREE_PLAN: PLAN = {
   id: "free",
   popular: false,
-  product_id: null, // 免费方案无需商品编码
+  product_id: null,
   price: { monthly: 0, yearly: 0 },
   name: "Starter",
   description:
     "Get started with Nano Banana 2 for free. Basic features with watermarks.",
+  feature_description: [
+    "10 starter credits",
+    "Basic generation quality",
+    "Text-to-Image & Image-to-Image",
+    "Watermark included",
+  ],
   limit: {
     adblock: false,
-    watermarks: true, // 免费方案显示水印
+    watermarks: true,
     highResolution: false,
     fullStyles: false,
-    credits: 3, // 注册赠送的积分
+    credits: { monthly: 10, yearly: 10 },
     private: false,
     features: false,
   },
 };
 
-// 高级方案
-export const PREMIUM_PLAN: PLAN = {
-  id: "premium",
-  popular: true,
-  price: { monthly: 4.99, yearly: 49.9 },
+export const BASIC_PLAN: PLAN = {
+  id: "basic",
+  popular: false,
+  price: { monthly: 9, yearly: 0 },
   product_id: {
-    monthly: "xxx", // TODO: 替换为 Creem 后台创建的月订阅商品编码
-    yearly: "xxx", // TODO: 替换为 Creem 后台创建的年订阅商品编码
+    monthly: CREEM_ACTIVE_PRODUCT_IDS.basicMonthly,
+    yearly: "",
   },
-  name: "Premium Plan",
+  name: "Basic",
   description:
-    "Support full styles and Ad-free experience, get no watermarks and high resolution image.",
+    "Perfect for beginners and casual creators who want to explore AI image generation.",
+  feature_description: [
+    "500 Credits per month",
+    "Generate high-quality AI images",
+    "Text-to-Image & Image-to-Image",
+    "Standard generation speed",
+    "Commercial usage allowed",
+    "No watermark",
+  ],
   limit: {
     adblock: true,
     watermarks: false,
-    highResolution: true,
+    highResolution: false,
     fullStyles: true,
-    credits: 100,
+    credits: { monthly: 500, yearly: 0 },
     private: true,
     features: false,
   },
 };
 
-// 定价方案列表（按展示顺序排列）
-export const PRICING_LIST: PLAN[] = [FREE_PLAN, PREMIUM_PLAN];
+export const PREMIUM_PLAN: PLAN = {
+  id: "premium",
+  popular: true,
+  price: { monthly: 19, yearly: 69 },
+  product_id: {
+    monthly: CREEM_ACTIVE_PRODUCT_IDS.proMonthly,
+    yearly: CREEM_ACTIVE_PRODUCT_IDS.proYearly,
+  },
+  name: "Pro",
+  description:
+    "Best value for creators who generate images regularly and need faster results.",
+  yearly_description:
+    "Save more with an annual plan designed for consistent creators. Enjoy a full year of AI image generation with discounted pricing and plenty of credits for your projects.",
+  feature_description: [
+    "2000 Credits per month",
+    "High-quality AI image generation",
+    "Text-to-Image & Image-to-Image",
+    "Priority generation speed",
+    "Commercial license",
+    "No watermark",
+    "Higher resolution outputs",
+  ],
+  limit: {
+    adblock: true,
+    watermarks: false,
+    highResolution: true,
+    fullStyles: true,
+    credits: { monthly: 2000, yearly: 7000 },
+    private: true,
+    features: false,
+  },
+};
 
-// 定价方案字典（按 ID 快速查找）
+export const PRICING_LIST: PLAN[] = [FREE_PLAN, BASIC_PLAN, PREMIUM_PLAN];
+
 export const PLANS: Record<string, PLAN> = PRICING_LIST.reduce(
   (acc, plan) => {
     acc[plan.id] = plan;
@@ -70,3 +137,12 @@ export const PLANS: Record<string, PLAN> = PRICING_LIST.reduce(
   },
   {} as Record<string, PLAN>
 );
+
+export const getPlanCreditsByType = (
+  plan: PLAN,
+  billingType: "monthly" | "yearly"
+) => {
+  return billingType === "yearly"
+    ? plan.limit.credits.yearly
+    : plan.limit.credits.monthly;
+};

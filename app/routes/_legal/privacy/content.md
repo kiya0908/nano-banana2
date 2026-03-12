@@ -16,7 +16,7 @@ Nano Banana 2 offers an AI-powered virtual hairstyle experience, allowing users 
 
 - **Photographic Data**: You may upload images to use our AI hairstyle generation tools. These images are used solely for providing our virtual styling service.
 
-- **Payment Information**: We do **not** store or process payment data directly. All transactions are handled securely by **Stripe**, our third-party payment processor.
+- **Payment Information**: We do **not** store or process payment data directly. All transactions are handled securely by **Creem**, our third-party payment processor.
 
 - **Usage Data**: We collect data about how you use our website, such as pages visited, time spent, device and browser type, and other analytics-related data.
 

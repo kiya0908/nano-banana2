@@ -13,5 +13,9 @@ export default defineConfig({
   ],
   server: {
     host: "0.0.0.0",
+    allowedHosts: [
+      "prefamiliarly-grippy-hermila.ngrok-free.app",
+      ".ngrok-free.app",
+    ],
   },
 });
